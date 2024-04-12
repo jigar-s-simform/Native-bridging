@@ -5,7 +5,9 @@ import {
   useColorScheme,
   NativeModules,
   Button,
-  DeviceEventEmitter
+  DeviceEventEmitter,
+  Platform,
+  NativeEventEmitter
 } from 'react-native';
 
 import {
@@ -14,6 +16,8 @@ import {
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
+  const {CalendarModule, Counter} = NativeModules;
+  const CounterEvents = new NativeEventEmitter(Counter);
 
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('EventReminder', (event) => {
@@ -25,10 +29,27 @@ function App(): React.JSX.Element {
     }
   }, []);
 
+  useEffect(() => {
+    CounterEvents.addListener("onIncrement", (result) => {
+      console.log("result of increment ", result)
+    })
+    CounterEvents.addListener("onDecrement", (result) => {
+      console.log("result of decrement ", result)
+    })
+    CounterEvents.addListener("continuousEvent", (result) => {
+      console.log("continuous event result ", result)
+    })
+
+    return () => {
+      CounterEvents.removeAllListeners("onIncrement")
+      CounterEvents.removeAllListeners("onDecrement")
+      CounterEvents.removeAllListeners("continuousEvent")
+    }
+  }, [])
+
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
-  const {CalendarModule, Counter} = NativeModules;
 
   const handler = async () => {
     try {
@@ -56,6 +77,29 @@ function App(): React.JSX.Element {
     CalendarModule.stopContinuousEvents()
   }
 
+  const workWithIosPromise = async () => {
+    try {
+      const promiseMessage = await Counter.decrement();
+      console.log("promise message: ", promiseMessage);
+    } catch(e) {
+      console.log("error is: ", e)
+    }
+  }
+
+  const incrementCounterIOS = () => {
+    Counter.increment((count: number) => {
+      console.log("Count after increment: ", count)
+    });
+  }
+
+  const startContinuousEventIOS = () => {
+    Counter.startEventsContinuously();
+  }
+
+  const stopContinuousEventIOS = () => {
+    Counter.stopSendingContinuously();
+  }
+
   return (
     <SafeAreaView style={backgroundStyle}>
       <StatusBar
@@ -65,6 +109,10 @@ function App(): React.JSX.Element {
       <Button title='Ye hi hai wo' onPress={handler} />
       <Button title='Ye hi hai wo stop button' onPress={stopReceivingEvents} />
       <Button title='Get constants' onPress={getConstants} />
+      <Button title='Promise ios decrement' onPress={Platform.OS === 'ios' ? workWithIosPromise : ()=>{}} />
+      <Button title='IOS increment' onPress={Platform.OS === 'ios' ? incrementCounterIOS : ()=>{}} />
+      <Button title='start continuous event ios' onPress={Platform.OS === 'ios' ? startContinuousEventIOS : ()=>{}} />
+      <Button title='stop continuous event ios' onPress={Platform.OS === 'ios' ? stopContinuousEventIOS : ()=>{}} />
     </SafeAreaView>
   );
 }
